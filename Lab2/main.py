@@ -1,15 +1,24 @@
+import socket
 import click
-import icmplib
+from pythonping import ping
 
 def check(host, count, interval, timeout, payload):
-    ping_res = icmplib.ping(
-                host,
-                count=count,
-                interval=interval,
-                timeout=timeout,
-                payload_size=payload - 28,
-            )
-    return ping_res.is_alive
+    res = ping(
+            host,
+            count=count,
+            interval=interval,
+            timeout=timeout,
+            size=payload - 28,
+            df=True,
+        )
+    return res.success()
+
+def hostname_resolves(hostname):
+    try:
+        socket.gethostbyname(hostname)
+        return 1
+    except socket.error:
+        return 0
 
 @click.command()
 @click.argument('host', type=str, required=True)
@@ -17,6 +26,10 @@ def check(host, count, interval, timeout, payload):
 @click.option('--timeout', '-W', type=click.FloatRange(min=0), default=1, help='Ping timeout (in seconds)')
 @click.option('--interval', '-i', type=click.FloatRange(min=0), default=0.1, help='Ping interval (in seconds)')
 def main(host, count, interval, timeout):
+    if not hostname_resolves(host):
+        print(f'Hostname {host} is unknown')
+        exit(1)
+
     l = 28
     r = 5000
     while r - l > 1:
@@ -27,18 +40,12 @@ def main(host, count, interval, timeout):
                 l = tm
             else:
                 r = tm
-        except icmplib.exceptions.DestinationUnreachable:
-            print(f'Host {host} unreachable')
-            exit(0)
-        except icmplib.exceptions.NameLookupError:
-            print(f'Host {host} cannot be resolved')
-            exit(0)
         except Exception as e:
-            print('Unknown icmplib.ping error')
+            print('Encountered error: ')
             print(e)
             exit(1)
 
-    if l == 0:
+    if l == 28:
         print(f'Host {host} unreachable')
     else:
         print(f'Maximum transmission unit is {l} bytes')

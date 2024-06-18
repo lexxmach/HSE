@@ -1,2 +1,2 @@
 click==8.0.3
-icmplib==3.0.4
+pythonping==1.1.4
